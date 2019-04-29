@@ -1,4 +1,4 @@
-package aspecttesting.testingAspect;
+package aspecttesting.testingAspect.exceptions;
 
 public class StackEmptyException extends Exception{
 

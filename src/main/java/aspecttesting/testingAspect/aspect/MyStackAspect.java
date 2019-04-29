@@ -15,9 +15,18 @@ import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 
+import aspecttesting.testingAspect.domain.ExceptionInfo;
+import aspecttesting.testingAspect.domain.ExceptionInfoStack;
+import aspecttesting.testingAspect.domain.ExceptionMap;
+
 @Aspect
 public class MyStackAspect {
 
+	private static Logger logger;
+	private static FileHandler fh;
+	private static List<String> testFilesProject = MyStackAspect.getAllTestFiles("./exception_testing_log/testfile_list.txt");
+	private static ExceptionMap exceptionMap = new ExceptionMap(); 
+	
 	// Exemplo de Pointcut - Na execucao de um metodo.
 	// @Pointcut("execution(public void
 	// aspecttesting.testingAspect.MyStack.push(long))")
@@ -55,45 +64,47 @@ public class MyStackAspect {
 
 	@AfterThrowing(value = "anyCall()", throwing = "t")
 	public void anyCallThatRaiseException(JoinPoint jp, Throwable t) {
-		for (String tesfile : testFilesProject) {
-			String testfileName = tesfile.substring(tesfile.lastIndexOf("/")+1, tesfile.length());
-			if(testfileName.equals(jp.getSourceLocation().getFileName())){
+//		for (String tesfile : testFilesProject) {
+//			String testfileName = tesfile.substring(tesfile.lastIndexOf("/")+1, tesfile.length());
+//			if(testfileName.equals(jp.getSourceLocation().getFileName())){
 				String info = "Location: " + jp.getSourceLocation().getWithinType().toString() + ":"
 						+ jp.getSourceLocation().getLine();
 				String location = jp.getSourceLocation().getFileName() + ":" + jp.getSourceLocation().getLine();
-				log(info, location, t);
+				addExceptionInfo(info, location, t);
+				log(t.getClass().getName());
+//			}
+//		}
+	}
+	
+	public synchronized static void addExceptionInfo(String info, String location, Throwable t) {
+		ExceptionInfoStack excpInfoStack = new ExceptionInfoStack();
+		for (StackTraceElement stackTraceElement : t.getStackTrace()) {			
+			ExceptionInfo ei = new ExceptionInfo(stackTraceElement.toString(), t.getClass().getName());
+			excpInfoStack.add(ei);
+			if (stackTraceElement.toString().contains(location.trim())) {
+				break;
 			}
-		}		
+		}
+		exceptionMap.addNewException(t.getClass().getName(), excpInfoStack);
 	}
 
-	private static Logger logger;
-	private static FileHandler fh;
-	private static List<String> testFilesProject = MyStackAspect.getAllTestFiles("./exception_testing_log/testfile_list.txt");
-
-	public static void log(String info, String location, Throwable t) {
-		logger = Logger.getLogger(t.getClass().getName());
+	public synchronized static void log(String exceptionClassName) {
+		logger = Logger.getLogger(exceptionClassName);
 		logger.setUseParentHandlers(false);
 		try {
 
-			String logDir = "./exception_testing_log/";
-			new File(logDir).mkdirs();
-
-			if (logger.getHandlers() == null || logger.getHandlers().length == 0) {
-				fh = new FileHandler(logDir + t.getClass().getName() + ".log", true);
+			String logDir = "./exception_testing_log/";			
+			
+			
+				fh = new FileHandler(logDir + exceptionClassName + ".log", false);	
+				
 				logger.addHandler(fh);
-			}
-
+			
+						
+			
 			SimpleFormatter formatter = new SimpleFormatter();
 			fh.setFormatter(formatter);
-
-			StringBuilder strTrace = new StringBuilder();
-			for (StackTraceElement stackTraceElement : t.getStackTrace()) {
-				strTrace.append(stackTraceElement + "\n");
-				if (stackTraceElement.toString().contains(location.trim())) {
-					break;
-				}
-			}
-			logger.info(info + "\n" + strTrace.toString());
+			logger.info(exceptionClassName + "\n" + exceptionMap.getExcetionInfoStackToPrint(exceptionClassName));
 		} catch (SecurityException e) {
 			e.printStackTrace();
 		} catch (IOException e) {

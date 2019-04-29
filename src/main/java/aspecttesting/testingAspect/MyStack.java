@@ -1,5 +1,8 @@
 package aspecttesting.testingAspect;
 
+import aspecttesting.testingAspect.exceptions.StackEmptyException;
+import aspecttesting.testingAspect.exceptions.StackFullException;
+
 public class MyStack {
 	private int maxSize;
 	private long[] stackArray;
